@@ -117,7 +117,8 @@ class PhysicsInformedNN:
         U = U1[:, :-1]
         U_x = self.fwd_gradients_0(U, x)
         U_xx = self.fwd_gradients_0(U_x, x)
-        F = -U * U_x + nu * U_xx
+        F = -tf.exp(-self.dt) * tf.sin(2 * np.pi * x) + 4 * (np.pi ** 2) * tf.exp(-self.dt) * tf.sin(
+            2 * np.pi * x) - U_xx
         U0 = U1 - self.dt * tf.matmul(F, self.IRK_weights.T)
         return U0
 
@@ -156,22 +157,21 @@ class PhysicsInformedNN:
 
 
 if __name__ == "__main__":
-    q = 50
-    layers = [1, 50, 50, 50, q + 1]
-    lb = np.array([-1.0])
+    q = 500
+    layers = [1, 50, 50, 50, 50, q + 1]
+    lb = np.array([0.0])
     ub = np.array([1.0])
 
     N = 250
 
     data = scipy.io.loadmat('../Data/burgers_shock.mat')
+    x = scipy.io.loadmat('../Data/x.mat')['Expression1'].flatten()[:, None]
+    t = scipy.io.loadmat('../Data/t.mat')['Expression1'].flatten()[:, None]
+    Exact = np.real(scipy.io.loadmat('../Data/u.mat')['Expression1']).T  # T x N
 
-    t = data['t'].flatten()[:, None]  # T x 1
-    x = data['x'].flatten()[:, None]  # N x 1
-    Exact = np.real(data['usol']).T  # T x N
-
-    idx_t0 = 10
-    idx_t1 = 90
-    dt = t[idx_t1] - t[idx_t0]
+    idx_t0 = 100
+    idx_t1 = 100
+    dt = (t[idx_t1] - t[idx_t0]).astype(np.float32)
 
     # Initial data
     noise_u0 = 0.0
@@ -187,7 +187,7 @@ if __name__ == "__main__":
     x_star = x
 
     model = PhysicsInformedNN(x0, u0, x1, layers, dt, lb, ub, q)
-    model.train(10000)
+    model.train(20000)
 
     U1_pred = model.predict(x_star)
 
@@ -196,12 +196,12 @@ if __name__ == "__main__":
 
     ######################################################################
     ############################# Plotting ###############################
-    ######################################################################    
+    ######################################################################
 
     fig, ax = newfig(1.0, 1.2)
     ax.axis('off')
 
-    ####### Row 0: h(t,x) ##################    
+    ####### Row 0: h(t,x) ##################
     gs0 = gridspec.GridSpec(1, 2)
     gs0.update(top=1 - 0.06, bottom=1 - 1 / 2 + 0.1, left=0.15, right=0.85, wspace=0)
     ax = plt.subplot(gs0[:, :])
@@ -222,7 +222,7 @@ if __name__ == "__main__":
     leg = ax.legend(frameon=False, loc='best')
     ax.set_title('$u(t,x)$', fontsize=10)
 
-    ####### Row 1: h(t,x) slices ##################    
+    ####### Row 1: h(t,x) slices ##################
     gs1 = gridspec.GridSpec(1, 2)
     gs1.update(top=1 - 1 / 2 - 0.05, bottom=0.15, left=0.15, right=0.85, wspace=0.5)
 
